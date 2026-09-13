@@ -1,0 +1,192 @@
+# Experimental API contract; no ARC reconciler is registered for this group yet.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: runnerleases.async.gheroco.dev
+spec:
+  group: async.gheroco.dev
+  scope: Namespaced
+  names:
+    plural: runnerleases
+    singular: runnerlease
+    kind: RunnerLease
+    shortNames:
+    - rlease
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    additionalPrinterColumns:
+    - name: Phase
+      type: string
+      jsonPath: .status.phase
+    - name: Runner
+      type: string
+      jsonPath: .status.runnerName
+    - name: Job
+      type: string
+      jsonPath: .status.job.jobId
+    - name: Broker
+      type: string
+      jsonPath: .status.broker.ownerId
+    - name: LockedUntil
+      type: date
+      jsonPath: .status.broker.githubLockedUntil
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - ephemeralRunnerRef
+            - runnerScaleSetId
+            - jitConfigSecretRef
+            - workspace
+            properties:
+              ephemeralRunnerRef:
+                type: string
+              runnerScaleSetId:
+                type: integer
+              jitConfigSecretRef:
+                type: string
+              brokerClass:
+                type: string
+                default: default
+              suspendPolicy:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                    default: false
+                  maxSuspendSeconds:
+                    type: integer
+                    minimum: 60
+                    default: 21600
+                  maxSegments:
+                    type: integer
+                    minimum: 1
+                    default: 4
+              workspace:
+                type: object
+                required:
+                - mode
+                properties:
+                  mode:
+                    type: string
+                    enum:
+                    - pvc
+                  storageClassName:
+                    type: string
+                  size:
+                    type: string
+                    default: 20Gi
+              workerProfile:
+                type: string
+                default: default
+          status:
+            type: object
+            properties:
+              phase:
+                type: string
+                enum:
+                - Acquired
+                - Executing
+                - SuspendPrepared
+                - Suspended
+                - ResumeRequested
+                - Resuming
+                - Completing
+                - Succeeded
+                - Failed
+                - Cancelled
+                - Lost
+                - Expired
+              runnerId:
+                type: integer
+              runnerName:
+                type: string
+              job:
+                type: object
+                properties:
+                  workflowRunId:
+                    type: integer
+                    format: int64
+                  jobId:
+                    type: string
+                  planId:
+                    type: string
+                  repository:
+                    type: string
+                  displayName:
+                    type: string
+                  scaleSetRunnerRequestId:
+                    type: integer
+                    format: int64
+                    minimum: 1
+                  runServiceRunnerRequestId:
+                    type: string
+                    minLength: 1
+              broker:
+                type: object
+                properties:
+                  ownerId:
+                    type: string
+                  epoch:
+                    type: integer
+                    format: int64
+                  ownerExpiresAt:
+                    type: string
+                    format: date-time
+                  lastRenewedAt:
+                    type: string
+                    format: date-time
+                  githubLockedUntil:
+                    type: string
+                    format: date-time
+              continuation:
+                type: object
+                properties:
+                  generation:
+                    type: integer
+                    format: int64
+                  ref:
+                    type: string
+                  digest:
+                    type: string
+                  runnerVersion:
+                    type: string
+              external:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                  operationId:
+                    type: string
+                  attempt:
+                    type: integer
+                  state:
+                    type: string
+                    enum:
+                    - Pending
+                    - Succeeded
+                    - Failed
+                    - Cancelled
+              workspacePvcRef:
+                type: string
+              activeExecutionRef:
+                type: string
+              segment:
+                type: integer
+              conditions:
+                type: array
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
