@@ -14,3 +14,4 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test -race ./experimental/async-lease-broker/lifecycle
+      - run: go test -race ./controllers/actions.github.com -run TestAsyncBroker -count=1

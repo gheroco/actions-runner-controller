@@ -97,6 +97,15 @@ func (r *EphemeralRunnerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	original := ephemeralRunner.DeepCopy()
 
 	if !ephemeralRunner.DeletionTimestamp.IsZero() {
+		if asyncBrokerEnabled(&ephemeralRunner) {
+			_, code, err := asyncBrokerRequest(ctx, "DELETE", string(ephemeralRunner.UID), nil)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if code != 200 && code != 404 {
+				return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+			}
+		}
 		r.publishEphemeralRunnerPhaseMetric(&ephemeralRunner, "", log)
 
 		if !controllerutil.ContainsFinalizer(&ephemeralRunner, ephemeralRunnerFinalizerName) {
@@ -243,6 +252,10 @@ func (r *EphemeralRunnerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			return ctrl.Result{}, fmt.Errorf("failed to update runner status for RunnerId/RunnerName: %w", err)
 		}
 		log.Info("Updated ephemeral runner status with runnerId and runnerName")
+	}
+
+	if asyncBrokerEnabled(&ephemeralRunner) {
+		return r.reconcileAsyncBroker(ctx, &ephemeralRunner, secret)
 	}
 
 	if len(ephemeralRunner.Status.Failures) > maxFailures {
